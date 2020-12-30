@@ -1,0 +1,18 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.4.20'
+}
+
+group 'org.bravo'
+version '0.1'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(
+        "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.2",
+        "net.java.dev.jna:jna:4.5.0",
+    )
+}
