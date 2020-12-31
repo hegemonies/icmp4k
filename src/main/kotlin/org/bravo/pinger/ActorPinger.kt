@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import org.bravo.pinger.Common.pingTo
 
@@ -20,17 +21,17 @@ class GetResult(val result: CompletableDeferred<Map<String, Boolean>>) : ActorPi
 private fun CoroutineScope.pingerActor() = actor<ActorPingerMessage> {
     var counter = 0
     var limit = 0
-    val finishResult = Channel<Map<String, Boolean>>()
-    val results = Channel<Pair<String, Boolean>>()
+    val finishResult = CompletableDeferred<Map<String, Boolean>>()
+    val results = Channel<Pair<String, Boolean>>(capacity = Channel.UNLIMITED)
 
     suspend fun fromChannelToMap(channel: Channel<Pair<String, Boolean>>): Map<String, Boolean> {
         val map = mutableMapOf<String, Boolean>()
 
-        repeat(counter) {
-            channel.receiveAsFlow().collect { (ip, result) ->
+        channel.receiveAsFlow()
+            .take(counter)
+            .collect { (ip, result) ->
                 map[ip] = result
             }
-        }
 
         return map
     }
@@ -41,11 +42,12 @@ private fun CoroutineScope.pingerActor() = actor<ActorPingerMessage> {
                 if (counter < limit) {
                     counter++
 
-                    GlobalScope.launch {
+                    if (limit != 0 && counter == limit) {
                         results.send(message.ip to pingTo(message.ip))
-
-                        if (limit != 0 && counter == limit) {
-                            finishResult.send(fromChannelToMap(results))
+                        finishResult.complete(fromChannelToMap(results))
+                    } else {
+                        GlobalScope.launch {
+                            results.send(message.ip to pingTo(message.ip))
                         }
                     }
                 }
@@ -53,8 +55,9 @@ private fun CoroutineScope.pingerActor() = actor<ActorPingerMessage> {
             is SetLimit ->
                 limit = message.limit
 
-            is GetResult ->
-                message.result.complete(finishResult.receive())
+            is GetResult -> {
+                message.result.complete(finishResult.await())
+            }
         }
     }
 }

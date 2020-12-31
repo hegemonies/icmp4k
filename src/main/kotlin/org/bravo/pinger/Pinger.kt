@@ -5,6 +5,8 @@ import kotlin.system.measureTimeMillis
 suspend fun main() {
     val testData = listOf("google.com", "10.25.96.33", "90.189.213.176", "3.3.3.3")
 
+    warmUp(testData)
+
     measureTimeMillis {
         println(
             FlowAsyncPinger.ping(testData)
@@ -19,5 +21,11 @@ suspend fun main() {
         )
     }.also { elapsedTime ->
         println("actor pings took $elapsedTime ms")
+    }
+}
+
+private fun warmUp(ips: List<String>) {
+    ips.forEach { ip ->
+        Common.pingTo(ip)
     }
 }
