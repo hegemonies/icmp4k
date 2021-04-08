@@ -11,12 +11,15 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.newFixedThreadPoolContext
 import org.bravo.pinger.Common.pingTo
 
 sealed class ActorPingerMessage
 class PingTo(val ip: String) : ActorPingerMessage()
 class SetLimit(val limit: Int) : ActorPingerMessage()
 class GetResult(val result: CompletableDeferred<Map<String, Boolean>>) : ActorPingerMessage()
+
+private val dispatcher = newFixedThreadPoolContext(256, "actor-dispatcher")
 
 private fun CoroutineScope.pingerActor() = actor<ActorPingerMessage> {
     var counter = 0
@@ -46,7 +49,7 @@ private fun CoroutineScope.pingerActor() = actor<ActorPingerMessage> {
                         results.send(message.ip to pingTo(message.ip))
                         finishResult.complete(fromChannelToMap(results))
                     } else {
-                        GlobalScope.launch {
+                        GlobalScope.launch(dispatcher) {
                             results.send(message.ip to pingTo(message.ip))
                         }
                     }
@@ -69,7 +72,7 @@ object ActorPinger : IPinger {
 
         actor.send(SetLimit(ips.size))
 
-        ips.asFlow().collect { ip ->
+        ips.forEach { ip ->
             actor.send(PingTo(ip))
         }
 

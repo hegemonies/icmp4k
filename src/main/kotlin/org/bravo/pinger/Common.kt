@@ -20,7 +20,7 @@ object Common {
     }
 
     private fun executePing(request: IcmpPingRequest): Boolean {
-        repeat(3) {
+        repeat(1) {
             val response = IcmpPingUtil.executePingRequest(request)
 
             if (response.successFlag) {
